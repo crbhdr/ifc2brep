@@ -4,13 +4,13 @@
 void BrepGeometryModeler::addMappedItemAsSurface(OdIfc::OdIfcInstancePtr mappedItem)
 {
     mGeometries.emplace_back(getSurfaceModel(mappedItem));
-    mGeometryTypes.push_back(0);
+    mGeometryTypes.push_back(GeometryTypeEnum::GeometryTypeSurface);
 }
 
 void BrepGeometryModeler::addMappedItemAsSolid(OdIfc::OdIfcInstancePtr mappedItem)
 {
     mGeometries.emplace_back(getSweptSolid(mappedItem));
-    mGeometryTypes.push_back(1);
+    mGeometryTypes.push_back(GeometryTypeEnum::GeometryTypeSolid);
 }
 
 void BrepGeometryModeler::postProcessGeometries(const OdString& strBrepFilename)
@@ -47,9 +47,9 @@ void BrepGeometryModeler::postProcessGeometries(const OdString& strBrepFilename)
     std::size_t solidIdx = 0;
     for (const auto& geometryType : mGeometryTypes)
     {
-        if (geometryType == 0)
+        if (geometryType == GeometryTypeEnum::GeometryTypeSurface)
         {
-            const nlohmann::json geometry{ {"shells", 93 } };
+            const nlohmann::json geometry{ {"shells", {0, 1, 2, 93} } };
             brepDoc["geometries"].push_back(geometry);
         }
         else
@@ -166,7 +166,9 @@ std::shared_ptr<FacetModeler::Body> BrepGeometryModeler::getSurfaceModel(OdIfc::
     std::vector<std::array<std::size_t, 3>> triangleIndices;
     std::cout << "printing mapped surface" << std::endl;
     std::cout << "\tlength of boundaryFaces: " << boundaryFaces.size() << std::endl;
-    std::int16_t i = 0;
+
+    // Fill in the Point3d map in order to prevent duplications
+    // And use map indices as triangle indices
     for (const FaceBounds& boundaryFace : boundaryFaces)
     {
         for (const BoundPolygons& boundPolygon : boundaryFace)
@@ -197,31 +199,45 @@ std::shared_ptr<FacetModeler::Body> BrepGeometryModeler::getSurfaceModel(OdIfc::
         faceData.push_back(indices[2]);
     }
 
-    std::vector<OdGePoint3d> aVertices{
-  OdGePoint3d(77.0, 0.0,  0.0),
-  OdGePoint3d(0.0,  70.0, 0.0),
-  OdGePoint3d(77.0, 77.0, 0.0),
-  OdGePoint3d(0.0,  77.0, 77.0),
-    };
+    if(0)
+    {
+        std::vector<OdGePoint3d> aVertices{
+      OdGePoint3d(77.0, 0.0,  0.0),
+      OdGePoint3d(0.0,  70.0, 0.0),
+      OdGePoint3d(77.0, 77.0, 0.0),
+      OdGePoint3d(0.0,  77.0, 77.0),
+        };
 
-    // Create array with face data
-    std::vector<OdInt32> aFaceData{
-      3, 3, 2, 1,
-      3, 1, 2, 0,
-      3, 2, 3, 0,
-      3, 3, 1, 0
-    };
-    auto bd = FacetModeler::Body::createFromMesh(aVertices, aFaceData);
-    std::cout << "\tbd.faceCount = " << bd.faceCount() << std::endl;
-    int n = 0;
+        // Create array with face data
+        std::vector<OdInt32> aFaceData{
+          3, 3, 2, 1,
+          3, 1, 2, 0,
+          3, 2, 3, 0,
+          3, 3, 1, 0,
+        };
+        auto bd = FacetModeler::Body::createFromMesh(aVertices, aFaceData);
+        std::cout << "\tbd.faceCount = " << bd.faceCount() << std::endl;
+    }
+
+    /* Don't dump --> int n = 0;
     for (const auto& v : verticesVector)
     {
-        //std::cout << n++ << " : " << v[0] << ", " << v[1] << ", " << v[2] << std::endl;
+        std::cout << n++ << " : " << v[0] << ", " << v[1] << ", " << v[2] << std::endl;
     }
-    for (const auto id : faceData)
+    for (std::size_t i = 0; i < faceData.size(); ++i)
     {
-        //std::cout << id << " , ";
-    }
+        std::cout << faceData[i];
+        if (i % 4 == 3)
+        {
+            std::cout << std::endl;
+        }
+        else
+        {
+            std::cout << ", ";
+        }
+    }*/
+    auto surfaceFromFile = FacetModeler::Body::createFromMesh(verticesVector, faceData);
+    std::cout << "\tsurfaceFromFile .faceCount = " << surfaceFromFile.faceCount() << std::endl;
     std::cout << std::endl;
     std::cout << std::endl;
 

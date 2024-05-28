@@ -23,6 +23,12 @@
 #include <vector>
 #include <json/single_include/nlohmann/json.hpp>
 
+enum class GeometryTypeEnum
+{
+    GeometryTypeSurface,
+    GeometryTypeSolid
+};
+
 class BrepGeometryModeler
 {
 public:
@@ -69,6 +75,6 @@ private:
         const OdGeMatrix3d& rotation);
 
 	std::vector<std::shared_ptr<FacetModeler::Body>> mGeometries;
-	std::vector<int> mGeometryTypes;
+	std::vector<GeometryTypeEnum> mGeometryTypes;
 };
 
