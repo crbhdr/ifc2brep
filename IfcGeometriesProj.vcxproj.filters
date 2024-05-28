@@ -25,6 +25,9 @@
     <ClCompile Include="..\..\..\..\..\KernelBase\Extensions\alloc\OdAllocOp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BrepGeometryModeler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include=".\ExGsSimpleDevice.h">
@@ -46,6 +49,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\..\Ifc\Extensions\ExServices\ExIfcHostAppServices.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BrepGeometryModeler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AttributeHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

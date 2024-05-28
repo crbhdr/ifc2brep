@@ -41,7 +41,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..\..\..\..\KernelBase\Include;..\..\..\..\..\ThirdParty;..\..\..\..\..\ThirdParty\activation;..\..\..\..\..\Ifc\Extensions\ExServices;..\..\..\..\..\Ifc\Examples\Common;..\..\..\..\..\Ifc\Include;..\..\..\..\..\Ifc\Include\Common;..\..\..\..\..\Sdai\Include;..\..\..\..\..\Kernel\Include;..\..\..\..\..\Kernel\Extensions\ExServices;..\..\..\..\..\Kernel\DevInclude\root;..\..\..\..\..\KernelBase;..\..\..\..\..\KernelBase\Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\..\..\KernelBase\Include;..\..\..\..\..\ThirdParty;..\..\..\..\..\ThirdParty\activation;..\..\..\..\..\Ifc\Extensions\ExServices;..\..\..\..\..\Ifc\Examples\Common;..\..\..\..\..\Ifc\Include;..\..\..\..\..\Ifc\Include\Common;..\..\..\..\..\Sdai\Include;..\..\..\..\..\Kernel\Include;..\..\..\..\..\Kernel\Extensions\ExServices;..\..\..\..\..\Kernel\DevInclude\root;..\..\..\..\..\KernelBase;..\..\..\..\..\KernelBase\Source;..\..\..\..\..\FacetModeler\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>%(AdditionalOptions) /MP4</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -70,7 +70,7 @@
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <Link>
-      <AdditionalDependencies>IfcFacetModeler.lib;IFC4.lib;IFC2X3.lib;IfcCore.lib;sdai.lib;TD_Gs.lib;TD_Gi.lib;TD_Ge.lib;TD_Root.lib;TD_DbRoot.lib;TD_ExamplesCommon.lib;TD_Alloc.lib;Secur32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>IfcFacetModeler.lib;FacetModeler.lib;IFC4.lib;IFC2X3.lib;IfcCore.lib;sdai.lib;TD_Gs.lib;TD_Gi.lib;TD_Ge.lib;TD_Root.lib;TD_DbRoot.lib;TD_ExamplesCommon.lib;TD_Alloc.lib;Secur32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\..\..\..\..\exe\vc16_amd64dll;..\..\..\..\..\lib\vc16_amd64dll;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -88,6 +88,7 @@
     <ClCompile Include=".\IfcGeometries.cpp">
       <Link>IfcGeometries.cpp</Link>
     </ClCompile>
+    <ClCompile Include="BrepGeometryModeler.cpp" />
     <ClInclude Include=".\ExGsSimpleDevice.h">
       <Link>ExGsSimpleDevice.h</Link>
     </ClInclude>
@@ -127,6 +128,8 @@
     <ClInclude Include="..\..\..\..\..\Ifc\Extensions\ExServices\ExIfcHostAppServices.h">
       <Link>ExIfcHostAppServices.h</Link>
     </ClInclude>
+    <ClInclude Include="AttributeHelper.h" />
+    <ClInclude Include="BrepGeometryModeler.h" />
     <ResourceCompile Include=".\IfcGeometriesProj.rc">
       <Link>IfcGeometriesProj.rc</Link>
     </ResourceCompile>

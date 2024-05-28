@@ -47,10 +47,19 @@
 #include "ExPrintConsole.h"
 #include "ExKeyPressCatcher.h"
 
+#include "BrepGeometryModeler.h"
+#include "AttributeHelper.h"
+
+#include "Modeler/FMMdlBody.h"
+#include "FMProfile3D.h"
+#include "FMDataSerialize.h"
+#include "Modeler/FMMdlIterators.h"
+
 #include <array>
 #include <iostream>
 #include <fstream>
-#include <json/single_include/nlohmann/json.hpp>
+#include <iomanip>
+#include <vector>
 
 
 GS_TOOLKIT_EXPORT void odgsInitialize();
@@ -82,96 +91,334 @@ GS_TOOLKIT_EXPORT void odgsUninitialize();
 
 
 
-struct OdGePoint3dCompare
-{
-    bool operator() (const OdGePoint3d& lhs, const OdGePoint3d& rhs) const
-    {
-        return lhs.distanceSqrdTo(OdGePoint3d(0, 0, 0)) < rhs.distanceSqrdTo(OdGePoint3d(0, 0, 0));
-    }
-};
-using OdGePoint3dMap = std::map<OdGePoint3d, std::size_t, OdGePoint3dCompare>;
 
-std::size_t appendPointGetIdx(OdGePoint3dMap& vertices, const OdGePoint3d& pt)
+unsigned int inverse_aggregates = 0;
+unsigned int empty_inverse_aggregates = 0;
+
+void dumpEntity(OdIfc::OdIfcInstance* inst, OdDAI::Entity* entityDef)
 {
-    std::size_t idx = 0;
-    auto it = vertices.find(pt);
-    if (it != vertices.end())
+    if (inst == nullptr)
+        return;
+
+    const OdDAI::List<OdDAI::Entity*>& superEntities = entityDef->supertypes();
+    OdDAI::ConstIteratorPtr it_super = superEntities.createConstIterator();
+    for (std::int16_t itN = 0; it_super->next(); ++itN)
     {
-        idx = it->second;
-    }
-    else
-    {
-        idx = vertices.size();
-        vertices.emplace(pt, idx);
+        OdDAI::Entity* pEntity;
+        it_super->getCurrentMember() >> pEntity;
+        OdString entName2 = pEntity->name();
+        odPrintConsoleString(OD_T(" = <%d : found a super type.. dumping it.. %s>\n"), itN, entName2.c_str());
+        dumpEntity(inst, pEntity);
     }
 
-    return idx;
+    OdString entName = entityDef->name();
+    OdString strAbstract = entityDef->instantiable() ? OD_T("INSTANTIABLE") : OD_T("ABSTRACT");
+    odPrintConsoleString(OD_T("\t%s %s\n"), strAbstract.c_str(), entName.c_str());
+    for (OdDAI::ConstIteratorPtr it = entityDef->attributes().createConstIterator(); it->next();)
+    {
+
+        OdDAI::AttributePtr pAttr;
+        it->getCurrentMember() >> pAttr;
+
+        OdString strAttrType = OD_T("UNKNOWN");
+        switch (pAttr->getAttributeType())
+        {
+        case OdDAI::AttributeType::Explicit:
+        {
+            strAttrType = OD_T("EXPLICIT");
+        }
+        break;
+        case OdDAI::AttributeType::Inverse:
+        {
+            strAttrType = OD_T("INVERSE");
+        }
+        break;
+        case OdDAI::AttributeType::Derived:
+        {
+            strAttrType = OD_T("DERIVED");
+        }
+        break;
+        }
+
+        const OdAnsiString& attrName = pAttr->name();
+        odPrintConsoleString(OD_T("\t\t%s .%hs"), strAttrType.c_str(), attrName.c_str());
+
+
+        // #define _DUMP_DERIVED_ATTRIBUTES
+#ifndef _DUMP_DERIVED_ATTRIBUTES
+        if (pAttr->getAttributeType() == OdDAI::AttributeType::Derived)
+        {
+            odPrintConsoleString(OD_T(" = <Coming Soon>\n"));
+            continue;
+        }
+#endif
+
+        OdRxValue val;
+#ifndef _DUMP_DERIVED_ATTRIBUTES
+        val = inst->getAttr(attrName);
+#else
+        val = pDerived.isNull() ? inst->getAttr(attrName) : inst->getDerivedAttr(attrName);
+#endif
+
+        bool unset = false;
+        const OdRxValueType& vt = val.type();
+
+        if (vt == OdRxValueType::Desc<OdDAIObjectId>::value())
+        {
+            OdDAIObjectId idVal;
+            if (val >> idVal)
+            {
+                unset = OdDAI::Utils::isUnset(idVal);
+                if (!unset)
+                {
+                    OdUInt64 int64 = idVal.getHandle();
+                    odPrintConsoleString(OD_T(" = #%d"), int64);
+                }
+            }
+        }
+        else
+            if (vt == OdRxValueType::Desc<OdDAI::CompressedGUID>::value())
+            {
+                OdDAI::CompressedGUID guidVal;
+                if (val >> guidVal)
+                {
+                    unset = OdDAI::Utils::isUnset(guidVal);
+                    if (!unset)
+                    {
+                        odPrintConsoleString(OD_T(" = '%s'"), OdString(guidVal).c_str());
+                    }
+                }
+            }
+            else
+                if (vt == OdRxValueType::Desc<int>::value())
+                {
+                    int intVal;
+                    if (val >> intVal)
+                    {
+                        unset = OdDAI::Utils::isUnset(intVal);
+                        if (!unset)
+                            odPrintConsoleString(OD_T(" = %i"), intVal);
+                    }
+                }
+                else
+                    if (vt == OdRxValueType::Desc<double>::value())
+                    {
+                        double dblVal;
+                        if (val >> dblVal)
+                        {
+                            unset = OdDAI::Utils::isUnset(dblVal);
+                            if (!unset)
+                                odPrintConsoleString(OD_T(" = %.6f"), dblVal);
+                        }
+                    }
+                    else
+                        if (vt == OdRxValueType::Desc<const char*>::value())
+                        {
+                            const char* strVal;
+                            if (val >> strVal)
+                            {
+                                unset = OdDAI::Utils::isUnset(strVal);
+                                if (!unset)
+                                {
+                                    OdString strW = strVal;
+                                    odPrintConsoleString(OD_T(" = '%s'"), strW.c_str());
+                                }
+                            }
+                        }
+                        else
+                            if (vt.isEnum())
+                            {
+                                const char* strVal = nullptr;
+                                if (val >> strVal)
+                                {
+                                    unset = (strVal == nullptr);
+                                    if (!unset)
+                                    {
+                                        odPrintConsoleString(OD_T(" = .%s."), strVal);
+                                    }
+                                }
+
+                                // or:
+
+                                //OdDAI::EnumValueInfo enumVal;
+                                //if (val >> enumVal)
+                                //{
+                                //  unset = (enumVal.value == NULL);
+                                //  if (!unset)
+                                //  {
+                                //    odPrintConsoleString(L" = .%hs.", enumVal.value);
+                                //  }
+                                //}
+                            }
+                            else
+                                if (vt.isSelect())
+                                {
+                                    OdTCKind selectKind;
+                                    if (val >> selectKind)
+                                    {
+                                        unset = (selectKind == tkNull);
+                                        if (!unset)
+                                        {
+                                            OdString typePath = val.typePath();
+                                            odPrintConsoleString(OD_T(" = %s("), typePath.c_str());
+
+                                            switch (selectKind)
+                                            {
+                                            case tkObjectId: // An object identifier's value.
+                                            {
+                                                OdDAIObjectId idVal;
+                                                if (val >> idVal)
+                                                {
+                                                    OdUInt64 int64;
+                                                    int64 = idVal.getHandle();
+                                                    odPrintConsoleString(OD_T("#%d"), int64);
+                                                }
+                                                break;
+                                            }
+                                            case tkLong: // An unsigned 32-bit integer value.
+                                            {
+                                                int intVal;
+                                                if (val >> intVal)
+                                                    odPrintConsoleString(OD_T("%i"), intVal);
+                                                break;
+                                            }
+                                            case tkBoolean: // A boolean value.
+                                            {
+                                                bool boolVal;
+                                                if (val >> boolVal)
+                                                {
+                                                    OdString strBool;
+                                                    strBool = boolVal ? OD_T("true") : OD_T("false");
+                                                    odPrintConsoleString(OD_T("%s"), strBool.c_str());
+                                                }
+                                                break;
+                                            }
+                                            case tkDouble: // A double value.
+                                            {
+                                                double dVal;
+                                                if (val >> dVal)
+                                                    odPrintConsoleString(OD_T("%.6f"), dVal);
+                                                break;
+                                            }
+                                            case tkBinary: // A binary value.
+                                            case tkLogical: // A logical value.
+                                                break;
+                                            case tkString:
+                                            {
+                                                OdAnsiString strVal;
+                                                if (val >> strVal)
+                                                {
+                                                    OdString wcsVal = strVal;
+                                                    odPrintConsoleString(OD_T("'%s'"), wcsVal.c_str());
+                                                }
+                                                break;
+                                            }
+                                            case tkSequence:
+                                            {
+                                                odPrintConsoleString(OD_T("TODO: kSequence not implemented yet"));
+                                                break;
+                                            }
+                                            default:
+                                                odPrintConsoleString(OD_T("Not implemented yet."));
+                                            }
+                                            odPrintConsoleString(OD_T(")"));
+                                        }
+                                    }
+                                }
+                                else
+                                    //if (vt == OdRxValueType::Desc<OdDAIObjectIds>::value()
+                                    //  || vt == OdRxValueType::Desc<OdDAI::Aggr<OdDAIObjectId>* >::value())
+                                    if (vt.isAggregate())
+                                    {
+                                        OdDAI::Aggr* aggr = NULL;
+                                        if (val >> aggr)
+                                        {
+                                            unset = aggr->isNil();
+                                            if (!unset)
+                                            {
+                                                odPrintConsoleString(OD_T(" = "));
+
+                                                OdDAI::AggrType aggrType = aggr->aggrType();
+                                                switch (aggrType)
+                                                {
+                                                case OdDAI::aggrTypeArray:
+                                                    odPrintConsoleString(OD_T("ARRAY"));
+                                                    break;
+                                                case OdDAI::aggrTypeBag:
+                                                    odPrintConsoleString(OD_T("BAG"));
+                                                    break;
+                                                case OdDAI::aggrTypeList:
+                                                    odPrintConsoleString(OD_T("LIST"));
+                                                    break;
+                                                case OdDAI::aggrTypeSet:
+                                                    odPrintConsoleString(OD_T("SET"));
+                                                    break;
+                                                }
+
+                                                odPrintConsoleString(OD_T("["));
+                                                OdDAI::IteratorPtr iterator = aggr->createIterator();
+                                                for (iterator->beginning(); iterator->next();)
+                                                {
+                                                    OdRxValue val = iterator->getCurrentMember();
+                                                    OdString strVal = val.toString();
+                                                    odPrintConsoleString(OD_T(" %s "), strVal.c_str());
+                                                }
+                                                odPrintConsoleString(OD_T("]"));
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        //
+                                        // Deprecated: OdArray instead of Aggregate
+                                        //
+                                        OdDAIObjectIds idsVal;
+                                        if (val >> idsVal)
+                                        {
+                                            ++inverse_aggregates;
+                                            unset = (idsVal.size() == 0);
+                                            if (!unset)
+                                            {
+                                                OdUInt64 int64;
+                                                int64 = idsVal[0].getHandle();
+                                                odPrintConsoleString(OD_T(" = (#%d"), int64);
+                                                for (unsigned int i = 1; i < idsVal.size(); ++i)
+                                                {
+                                                    int64 = idsVal[i].getHandle();
+                                                    odPrintConsoleString(OD_T(", #%d"), int64);
+                                                }
+                                                odPrintConsoleString(OD_T(")"));
+                                            }
+                                            else
+                                                ++empty_inverse_aggregates;
+                                        }
+                                    }
+
+        if (unset)
+            odPrintConsoleString(OD_T(" = UNSET"));
+
+        odPrintConsoleString(OD_T("\n"));
+    }
 }
 
-void postProcessTriangles(const OdArray<OdIfcStlTriangleFace>& arrTriangles, const OdString& strBrepFilename)
-{
-    OdGePoint3dMap vertices;
-    std::vector<std::array<std::size_t, 3>> triangleIndices;
-    for (const auto& triangle : arrTriangles)
-    {
-        std::size_t id1 = appendPointGetIdx(vertices, triangle.m_pt1);
-        std::size_t id2 = appendPointGetIdx(vertices, triangle.m_pt2);
-        std::size_t id3 = appendPointGetIdx(vertices, triangle.m_pt3);
-
-        std::array<std::size_t, 3> arr = { id1, id2, id3 };
-        triangleIndices.push_back(arr);
-    }
-
-    std::cout << "vertices size = " << vertices.size() << std::endl;
-    std::cout << "triangleIndices size = " << triangleIndices.size() << std::endl;
-
-    nlohmann::json brepDoc;
-    for (const auto& vertex : vertices)
-    {
-        const nlohmann::json pos { "position", nlohmann::json::array({vertex.first[0], vertex.first[1], vertex.first[2]}) };
-        brepDoc["vertices"].push_back(pos);
-    }
-
-    for (const auto& indices : triangleIndices)
-    {
-        const nlohmann::json ind{ "indices", nlohmann::json::array({indices[0], indices[1], indices[2]}) };
-        brepDoc["faces"].push_back(ind);
-    }
-
-
-    std::ofstream brepFileStream(strBrepFilename.c_str(), std::ofstream::out);
-    brepFileStream << std::setw(4) << brepDoc;
-}
 
 /************************************************************************/
 /* Main                                                                 */
 /************************************************************************/
-
 #if defined(OD_USE_WMAIN)
 int wmain(int argc, wchar_t* argv[])
 #else
 int main(int argc, char* argv[])
 #endif
 {
-  int   nRes = 0;               // Return value for the function
+  int   nRes = 0;
 
 #ifdef OD_HAVE_CCOMMAND_FUNC
   argc = ccommand(&argv);
 #endif
 
-  /********************************************************************/
-  /* Create a Services object                                         */
-  /********************************************************************/
   OdStaticRxObject<MyServices> svcs;
-
-  /**********************************************************************/
-  /* Display the Product and Version that created the executable        */
-  /**********************************************************************/
   odPrintConsoleString(OD_T("\nExIfcVectorize sample program. Copyright (c) 2022, Open Design Alliance\n"));
-
-  /**********************************************************************/
-  /* Parse Command Line inputs                                          */
-  /**********************************************************************/
   bool bInvalidArgs = (argc < 2);
 
   if (bInvalidArgs)
@@ -201,16 +448,8 @@ int main(int argc, char* argv[])
   ODRX_INIT_STATIC_MODULE_MAP();
 #endif
 
-  /**********************************************************************/
-  /* Initialize ODA SDK                                                 */
-  /**********************************************************************/
   odrxInitialize(&svcs);
   odgsInitialize();
-
-  /**********************************************************************/
-  /* Initialize IfcCore                                                 */
-  /**********************************************************************/
-
   odIfcInitialize(false /* No CDA */, true);
 
   try
@@ -222,68 +461,69 @@ int main(int argc, char* argv[])
       throw OdError( eCantOpenFile );
     }
 
-    auto &ctx = pDatabase->getContext();
-    
-    // // Specialize deviation parameters
-    // //OdIfcDeviationParams deviationParams;
-    // //deviationParams.setMinPerCircle(16);
-    // //deviationParams.setMaxPerCircle(128);
-    // //deviationParams.setDeviation(0.005);
-    // //ctx.setDeviationParams(deviationParams);
+    BrepGeometryModeler brepGeometryModeler;
 
-    // // Turn on IfcSpace visualization
-    // //ctx.getGeometryComposeTypes().append(OdIfc::kIfcSpace);
-
-    // Specialize callback function for geometry compose process interruption
-    KeyPressCatcher keyPressCatcher;
-    ctx.setInterruptCallback(keyPressCatcher.getInterruptCallback());
-
-    if (OdResult res = pDatabase->composeEntities())
+    OdIfcModelPtr pModel = pDatabase->getModel();
+    OdDAI::InstanceIteratorPtr it = pModel->newIterator();
+    OdIfc::OdIfcInstancePtr pInst;
+    unsigned int entIdx;
+    for (entIdx = 0; !it->done(); it->step(), ++entIdx)
     {
-      if (res == eFileInternalErr) {
-        throw OdError( eFileInternalErr );
-      }
-      if (res == eNullPtr) {
-        throw OdError( eNullPtr );
-      }
+        // Opens an instance
+        pInst = it->id().openObject();
+
+        if (!pInst.isNull())
+        {
+            const char* globalid;
+            pInst->getAttr("globalid") >> globalid;
+            OdString strGlobalid = globalid;
+            if (strGlobalid != "0f7I2_mxX3JOk$Z$4oj$LI") continue;
+
+            //dumpEntity(pInst, pInst->getInstanceType());
+
+            OdIfc::OdIfcInstancePtr objectPlacement = AttributeHelper::getAttributeAsInstance(pInst, "objectplacement");
+                OdIfc::OdIfcInstancePtr relativePlacement = AttributeHelper::getAttributeAsInstance(objectPlacement, "relativeplacement");
+                    OdIfc::OdIfcInstancePtr location = AttributeHelper::getAttributeAsInstance(relativePlacement, "location");
+                    OdIfc::OdIfcInstancePtr axis = AttributeHelper::getAttributeAsInstance(relativePlacement, "axis");
+                    OdIfc::OdIfcInstancePtr refdirection = AttributeHelper::getAttributeAsInstance(relativePlacement, "refdirection");
+                    {
+                        OdGeVector3d coordinates = AttributeHelper::getVector<OdGeVector3d>(location, "coordinates");
+                        OdGeVector3d directionratiosAxis = AttributeHelper::getVector<OdGeVector3d>(axis, "directionratios");
+                        OdGeVector3d directionratiosRefdirection = AttributeHelper::getVector<OdGeVector3d>(refdirection, "directionratios");
+                        std::cout << coordinates.x << " , " << coordinates.y << " , " << coordinates.z << std::endl;
+                        std::cout << directionratiosAxis.x << " , " << directionratiosAxis.y << " , " << directionratiosAxis.z << std::endl;
+                        std::cout << directionratiosRefdirection.x << " , " << directionratiosRefdirection.y << " , " << directionratiosRefdirection.z << std::endl;
+                    }
+
+            OdIfc::OdIfcInstancePtr representation = AttributeHelper::getAttributeAsInstance(pInst, "representation");                                          dumpEntity(representation, representation->getInstanceType());
+                std::vector<OdIfc::OdIfcInstancePtr> representations = AttributeHelper::getAttributeAsInstanceVector(representation, "representations");            dumpEntity(representations[0], representations[0]->getInstanceType());
+                    std::vector<OdIfc::OdIfcInstancePtr> items = AttributeHelper::getAttributeAsInstanceVector(representations[0], "items");                            dumpEntity(items[0], items[0]->getInstanceType());
+                        // Surface Model
+                        {
+                            OdIfc::OdIfcInstancePtr mappingsource = AttributeHelper::getAttributeAsInstance(items[0], "mappingsource");                                         dumpEntity(mappingsource, mappingsource->getInstanceType());
+                            OdIfc::OdIfcInstancePtr mappedrepresentation = AttributeHelper::getAttributeAsInstance(mappingsource, "mappedrepresentation");                      dumpEntity(mappedrepresentation, mappedrepresentation->getInstanceType());
+                            std::vector<OdIfc::OdIfcInstancePtr> mappedItems = AttributeHelper::getAttributeAsInstanceVector(mappedrepresentation, "items");
+                            for (const auto& mappedItem : mappedItems)
+                            {
+                                brepGeometryModeler.addMappedItemAsSurface(mappedItem);
+                            }
+                        }
+                        // SweptSolid
+                        {
+                            OdIfc::OdIfcInstancePtr mappingsource = AttributeHelper::getAttributeAsInstance(items[1], "mappingsource");
+                            OdIfc::OdIfcInstancePtr mappedrepresentation = AttributeHelper::getAttributeAsInstance(mappingsource, "mappedrepresentation");
+                            std::vector<OdIfc::OdIfcInstancePtr> mappedItems = AttributeHelper::getAttributeAsInstanceVector(mappedrepresentation, "items");
+                            for (const auto& mappedItem : mappedItems)
+                            {
+                                brepGeometryModeler.addMappedItemAsSolid(mappedItem);
+                            }
+                        }
+            std::cout << "length of items: " << items.size() << std::endl;
+        }
     }
 
-    OdGsDevicePtr pSimpleDevice = ExGsSimpleDevice::createObject(ExGsSimpleDevice::k3dDevice);
-    OdGiContextForIfcDatabasePtr pIfcContext = OdGiContextForIfcDatabase::createObject();
-
-    pIfcContext->setDatabase(pDatabase);
-    pIfcContext->enableGsModel(true);
-
-    const ODCOLORREF* palette = odcmAcadPalette(ODRGB(255, 255, 255));
-    OdArray<ODCOLORREF, OdMemoryAllocator<ODCOLORREF> > pPalCpy;
-    ODCOLORREF background(ODRGB(192, 192, 192));
-
-    pSimpleDevice->setBackgroundColor(background);
-    pIfcContext->setPaletteBackground(background);
-    pPalCpy.insert(pPalCpy.begin(), palette, palette + 256);
-    pSimpleDevice->setLogicalPalette(pPalCpy.asArrayPtr(), 256);
-
-    OdGsDevicePtr pDevice = OdIfcGsManager::setupActiveLayoutViews(pSimpleDevice, pIfcContext);
-    OdGsView* pView = pDevice->viewAt(0);
-
-    pView->setMode(OdGsView::kGouraudShaded);
-    pView->setView(OdGePoint3d(1, 1, 1), OdGePoint3d(0, 0, 0), OdGeVector3d::kZAxis, 1000, 1000);
-
-    OdDAIObjectIds contextsSelection = OdIfc::Utils::getDefaultRepresentationContextsSelection(pDatabase, false);
-    if (contextsSelection.isEmpty())
-      contextsSelection = OdIfc::Utils::getAllRepresentationContexts(pDatabase);
-    pDatabase->setContextSelection(contextsSelection);
-
-    OdGsDCRect screenRect(OdGsDCPoint(0, 0), OdGsDCPoint(1024, 768));
-
-    pDevice->onSize(screenRect);
-    OdAbstractViewPEPtr(pView)->zoomExtents(pView);
-    pDevice->update();
-
-    // Write triangle data to json.
-    postProcessTriangles(OdGiDumper::getStlTriangles(), strBrepFilename);
-
-    OdGiDumper::clearStlTriangles();
+    brepGeometryModeler.postProcessGeometries(strBrepFilename); // BC!!! not only the front element, process all elements
+    
   }
   catch (OdError& e)
   {
@@ -297,14 +537,7 @@ int main(int argc, char* argv[])
     throw;
   }
 
-  /**********************************************************************/
-  /* Uninitialize IfcCore                                               */
-  /**********************************************************************/
   odIfcUninitialize();
-
-  /**********************************************************************/
-  /* Uninitialize ODA SDK                                               */
-  /**********************************************************************/
   odgsUninitialize();
   odrxUninitialize();
 
