@@ -50,17 +50,6 @@
 #include "BrepGeometryModeler.h"
 #include "AttributeHelper.h"
 
-#include "Modeler/FMMdlBody.h"
-#include "FMProfile3D.h"
-#include "FMDataSerialize.h"
-#include "Modeler/FMMdlIterators.h"
-
-#include <array>
-#include <iostream>
-#include <fstream>
-#include <iomanip>
-#include <vector>
-
 
 GS_TOOLKIT_EXPORT void odgsInitialize();
 GS_TOOLKIT_EXPORT void odgsUninitialize();
@@ -479,7 +468,7 @@ int main(int argc, char* argv[])
             OdString strGlobalid = globalid;
             if (strGlobalid != "0f7I2_mxX3JOk$Z$4oj$LI") continue;
 
-            //dumpEntity(pInst, pInst->getInstanceType());
+            // Don't dump --> dumpEntity(pInst, pInst->getInstanceType());
 
             OdIfc::OdIfcInstancePtr objectPlacement = AttributeHelper::getAttributeAsInstance(pInst, "objectplacement");
                 OdIfc::OdIfcInstancePtr relativePlacement = AttributeHelper::getAttributeAsInstance(objectPlacement, "relativeplacement");
@@ -490,18 +479,18 @@ int main(int argc, char* argv[])
                         OdGeVector3d coordinates = AttributeHelper::getVector<OdGeVector3d>(location, "coordinates");
                         OdGeVector3d directionratiosAxis = AttributeHelper::getVector<OdGeVector3d>(axis, "directionratios");
                         OdGeVector3d directionratiosRefdirection = AttributeHelper::getVector<OdGeVector3d>(refdirection, "directionratios");
-                        std::cout << coordinates.x << " , " << coordinates.y << " , " << coordinates.z << std::endl;
-                        std::cout << directionratiosAxis.x << " , " << directionratiosAxis.y << " , " << directionratiosAxis.z << std::endl;
-                        std::cout << directionratiosRefdirection.x << " , " << directionratiosRefdirection.y << " , " << directionratiosRefdirection.z << std::endl;
+                        // Don't dump --> std::cout << coordinates.x << " , " << coordinates.y << " , " << coordinates.z << std::endl;
+                        // Don't dump --> std::cout << directionratiosAxis.x << " , " << directionratiosAxis.y << " , " << directionratiosAxis.z << std::endl;
+                        // Don't dump --> std::cout << directionratiosRefdirection.x << " , " << directionratiosRefdirection.y << " , " << directionratiosRefdirection.z << std::endl;
                     }
 
-            OdIfc::OdIfcInstancePtr representation = AttributeHelper::getAttributeAsInstance(pInst, "representation");                                          dumpEntity(representation, representation->getInstanceType());
-                std::vector<OdIfc::OdIfcInstancePtr> representations = AttributeHelper::getAttributeAsInstanceVector(representation, "representations");            dumpEntity(representations[0], representations[0]->getInstanceType());
-                    std::vector<OdIfc::OdIfcInstancePtr> items = AttributeHelper::getAttributeAsInstanceVector(representations[0], "items");                            dumpEntity(items[0], items[0]->getInstanceType());
+            OdIfc::OdIfcInstancePtr representation = AttributeHelper::getAttributeAsInstance(pInst, "representation");                                          // Don't dump --> dumpEntity(representation, representation->getInstanceType());
+                std::vector<OdIfc::OdIfcInstancePtr> representations = AttributeHelper::getAttributeAsInstanceVector(representation, "representations");            // Don't dump --> dumpEntity(representations[0], representations[0]->getInstanceType());
+                    std::vector<OdIfc::OdIfcInstancePtr> items = AttributeHelper::getAttributeAsInstanceVector(representations[0], "items");                            // Don't dump --> dumpEntity(items[0], items[0]->getInstanceType());
                         // Surface Model
                         {
-                            OdIfc::OdIfcInstancePtr mappingsource = AttributeHelper::getAttributeAsInstance(items[0], "mappingsource");                                         dumpEntity(mappingsource, mappingsource->getInstanceType());
-                            OdIfc::OdIfcInstancePtr mappedrepresentation = AttributeHelper::getAttributeAsInstance(mappingsource, "mappedrepresentation");                      dumpEntity(mappedrepresentation, mappedrepresentation->getInstanceType());
+                            OdIfc::OdIfcInstancePtr mappingsource = AttributeHelper::getAttributeAsInstance(items[0], "mappingsource");                                         // Don't dump --> dumpEntity(mappingsource, mappingsource->getInstanceType());
+                            OdIfc::OdIfcInstancePtr mappedrepresentation = AttributeHelper::getAttributeAsInstance(mappingsource, "mappedrepresentation");                      // Don't dump --> dumpEntity(mappedrepresentation, mappedrepresentation->getInstanceType());
                             std::vector<OdIfc::OdIfcInstancePtr> mappedItems = AttributeHelper::getAttributeAsInstanceVector(mappedrepresentation, "items");
                             for (const auto& mappedItem : mappedItems)
                             {

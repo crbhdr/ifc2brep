@@ -164,7 +164,8 @@ std::shared_ptr<FacetModeler::Body> BrepGeometryModeler::getSurfaceModel(OdIfc::
 
     OdGePoint3dMap vertices;
     std::vector<std::array<std::size_t, 3>> triangleIndices;
-    std::cout << "getSurfaceModel:: length of boundaryFaces: " << boundaryFaces.size() << std::endl;
+    std::cout << "printing mapped surface" << std::endl;
+    std::cout << "\tlength of boundaryFaces: " << boundaryFaces.size() << std::endl;
     std::int16_t i = 0;
     for (const FaceBounds& boundaryFace : boundaryFaces)
     {
@@ -211,7 +212,7 @@ std::shared_ptr<FacetModeler::Body> BrepGeometryModeler::getSurfaceModel(OdIfc::
       3, 3, 1, 0
     };
     auto bd = FacetModeler::Body::createFromMesh(aVertices, aFaceData);
-    std::cout << "getSurfaceModel:: bd.faceCount = " << bd.faceCount() << std::endl;
+    std::cout << "\tbd.faceCount = " << bd.faceCount() << std::endl;
     int n = 0;
     for (const auto& v : verticesVector)
     {
@@ -229,16 +230,16 @@ std::shared_ptr<FacetModeler::Body> BrepGeometryModeler::getSurfaceModel(OdIfc::
 
 std::shared_ptr<FacetModeler::Body> BrepGeometryModeler::getSweptSolid(OdIfc::OdIfcInstancePtr mappedItem)
 {
-    std::cout << "printing mapped item" << std::endl;
+    std::cout << "printing mapped solid" << std::endl;
     // Base circle
     OdIfc::OdIfcInstancePtr sweptarea = AttributeHelper::getAttributeAsInstance(mappedItem, "sweptarea");
     OdIfc::OdIfcInstancePtr sweptareaPosition = AttributeHelper::getAttributeAsInstance(sweptarea, "position");
     double r = AttributeHelper::getDouble(sweptarea, "radius");
     OdGeVector2d locationCircleCoord = AttributeHelper::getVector<OdGeVector2d>(sweptareaPosition, "location", "coordinates");
     OdGeVector2d directionratiosrefDirCircle = AttributeHelper::getVector<OdGeVector2d>(sweptareaPosition, "refdirection", "directionratios");
-    std::cout << "radius = " << r << std::endl;
-    std::cout << "location: " << locationCircleCoord.x << " , " << locationCircleCoord.y << std::endl;
-    std::cout << "direction: " << directionratiosrefDirCircle.x << " , " << directionratiosrefDirCircle.y << std::endl;
+    std::cout << "\tradius = " << r << std::endl;
+    std::cout << "\tlocation: " << locationCircleCoord.x << " , " << locationCircleCoord.y << std::endl;
+    std::cout << "\tdirection: " << directionratiosrefDirCircle.x << " , " << directionratiosrefDirCircle.y << std::endl;
 
     // Solid Cylinder
     double depth = AttributeHelper::getDouble(mappedItem, "depth");
@@ -251,12 +252,12 @@ std::shared_ptr<FacetModeler::Body> BrepGeometryModeler::getSweptSolid(OdIfc::Od
     OdGeMatrix3d rotation = OdGeMatrix3d();
     rotation.setCoordSystem(center.asPoint(), x_axis, y_axis, z_axis);
 
-    std::cout << "depth: " << depth << std::endl;
-    std::cout << "ext.dir: " << dir.x << " , " << dir.y << " , " << dir.z << std::endl;
-    std::cout << "center: " << center.x << " , " << center.y << " , " << center.z << std::endl;
-    std::cout << "x_axis: " << x_axis.x << " , " << x_axis.y << " , " << x_axis.z << std::endl;
-    std::cout << "y_axis: " << y_axis.x << " , " << y_axis.y << " , " << y_axis.z << std::endl;
-    std::cout << "z_axis: " << z_axis.x << " , " << z_axis.y << " , " << z_axis.z << std::endl;
+    std::cout << "\tdepth: " << depth << std::endl;
+    std::cout << "\text.dir: " << dir.x << " , " << dir.y << " , " << dir.z << std::endl;
+    std::cout << "\tcenter: " << center.x << " , " << center.y << " , " << center.z << std::endl;
+    std::cout << "\tx_axis: " << x_axis.x << " , " << x_axis.y << " , " << x_axis.z << std::endl;
+    std::cout << "\ty_axis: " << y_axis.x << " , " << y_axis.y << " , " << y_axis.z << std::endl;
+    std::cout << "\tz_axis: " << z_axis.x << " , " << z_axis.y << " , " << z_axis.z << std::endl;
     std::cout << std::endl;
 
     FacetModeler::DeviationParams devParams;
